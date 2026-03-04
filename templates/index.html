@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lip Reading - Video to Text</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+        }
+        
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 60px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #f8f9ff;
+        }
+        
+        .upload-area:hover {
+            border-color: #764ba2;
+            background: #f0f2ff;
+        }
+        
+        .upload-area.dragover {
+            border-color: #764ba2;
+            background: #e8ebff;
+            transform: scale(1.02);
+        }
+        
+        .upload-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+        }
+        
+        .upload-text {
+            font-size: 1.2em;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        
+        .upload-hint {
+            color: #999;
+            font-size: 0.9em;
+        }
+        
+        input[type="file"] {
+            display: none;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .btn-container {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .btn-primary {
+            flex: 1;
+        }
+        
+        .btn-clear {
+            background: #e74c3c;
+            flex: 0 0 auto;
+            padding: 15px 20px;
+        }
+        
+        .btn-clear:hover {
+            background: #c0392b;
+        }
+        
+        .btn-cancel {
+            background: #f39c12;
+            flex: 0 0 auto;
+            padding: 15px 20px;
+        }
+        
+        .btn-cancel:hover {
+            background: #e67e22;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .result {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9ff;
+            border-radius: 10px;
+            display: none;
+        }
+        
+        .result.show {
+            display: block;
+        }
+        
+        .result-label {
+            color: #667eea;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .result-text {
+            font-size: 1.3em;
+            color: #333;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+        }
+        
+        .loading.show {
+            display: block;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .error {
+            color: #e74c3c;
+            background: #ffeaea;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .error.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎬 Lip Reading</h1>
+        <p class="subtitle">Upload a video to get text prediction</p>
+        
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">📹</div>
+            <div class="upload-text">Drop video here or click to browse</div>
+            <div class="upload-hint">Supports: MP4, AVI, MOV, MPG, MKV, WEBM</div>
+            <input type="file" id="fileInput" accept="video/*">
+        </div>
+        
+        <div class="btn-container">
+            <button class="btn btn-primary" id="processBtn" disabled>Process Video</button>
+            <button class="btn btn-cancel" id="cancelBtn" style="display: none;">Cancel</button>
+            <button class="btn btn-clear" id="clearBtn" style="display: none;">Clear</button>
+        </div>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Processing video... This may take a minute.</p>
+        </div>
+        
+        <div class="error" id="error"></div>
+        
+        <div class="result" id="result">
+            <div class="result-label">Predicted Text:</div>
+            <div class="result-text" id="resultText"></div>
+        </div>
+    </div>
+    
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const processBtn = document.getElementById('processBtn');
+        const cancelBtn = document.getElementById('cancelBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const loading = document.getElementById('loading');
+        const result = document.getElementById('result');
+        const resultText = document.getElementById('resultText');
+        const error = document.getElementById('error');
+        let selectedFile = null;
+        let currentProcessId = null;
+        let abortController = null;
+        
+        uploadArea.addEventListener('click', () => fileInput.click());
+        
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+        
+        function handleFile(file) {
+            if (!file.type.startsWith('video/')) {
+                showError('Please select a video file');
+                return;
+            }
+            
+            selectedFile = file;
+            uploadArea.innerHTML = `
+                <div class="upload-icon">✓</div>
+                <div class="upload-text">${file.name}</div>
+                <div class="upload-hint">Click to choose a different file</div>
+            `;
+            processBtn.disabled = false;
+            clearBtn.style.display = 'block';
+            hideError();
+            hideResult();
+        }
+        
+        function clearSelection() {
+            // Cancel any ongoing processing
+            if (currentProcessId) {
+                cancelProcessing();
+            }
+            
+            selectedFile = null;
+            fileInput.value = '';
+            uploadArea.innerHTML = `
+                <div class="upload-icon">📹</div>
+                <div class="upload-text">Drop video here or click to browse</div>
+                <div class="upload-hint">Supports: MP4, AVI, MOV, MPG, MKV, WEBM</div>
+            `;
+            processBtn.disabled = true;
+            cancelBtn.style.display = 'none';
+            clearBtn.style.display = 'none';
+            hideError();
+            hideResult();
+        }
+        
+        async function cancelProcessing() {
+            if (!currentProcessId) return;
+            
+            try {
+                const response = await fetch(`/cancel/${currentProcessId}`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    showError('Processing cancelled');
+                }
+            } catch (err) {
+                console.error('Error cancelling:', err);
+            } finally {
+                if (abortController) {
+                    abortController.abort();
+                }
+                currentProcessId = null;
+                abortController = null;
+                hideLoading();
+                processBtn.disabled = false;
+                cancelBtn.style.display = 'none';
+                clearBtn.style.display = 'block';
+            }
+        }
+        
+        clearBtn.addEventListener('click', clearSelection);
+        cancelBtn.addEventListener('click', cancelProcessing);
+        
+        processBtn.addEventListener('click', async () => {
+            if (!selectedFile) return;
+            
+            const formData = new FormData();
+            formData.append('video', selectedFile);
+            
+            processBtn.disabled = true;
+            cancelBtn.style.display = 'block';
+            clearBtn.style.display = 'none';
+            showLoading();
+            hideError();
+            hideResult();
+            
+            // Create abort controller for cancellation
+            abortController = new AbortController();
+            currentProcessId = null;
+            
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData,
+                    signal: abortController.signal
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    currentProcessId = data.process_id || null;
+                    showResult(data.predicted_text);
+                    // Keep the file selected so user can process again or clear manually
+                } else {
+                    showError(data.error || 'Processing failed');
+                }
+            } catch (err) {
+                if (err.name === 'AbortError') {
+                    showError('Processing cancelled');
+                } else {
+                    showError('Network error: ' + err.message);
+                }
+            } finally {
+                hideLoading();
+                processBtn.disabled = false;
+                cancelBtn.style.display = 'none';
+                clearBtn.style.display = 'block';
+                currentProcessId = null;
+                abortController = null;
+            }
+        });
+        
+        function showLoading() {
+            loading.classList.add('show');
+        }
+        
+        function hideLoading() {
+            loading.classList.remove('show');
+        }
+        
+        function showResult(text) {
+            resultText.textContent = text;
+            result.classList.add('show');
+        }
+        
+        function hideResult() {
+            result.classList.remove('show');
+        }
+        
+        function showError(message) {
+            error.textContent = message;
+            error.classList.add('show');
+        }
+        
+        function hideError() {
+            error.classList.remove('show');
+        }
+    </script>
+</body>
+</html>
+
